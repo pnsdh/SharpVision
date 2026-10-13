@@ -1,0 +1,27 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build output
+bin/
+obj/
+*.binlog
+
+# IDE / editor caches
+.vs/
+.idea/
+*.user
+*.suo
+# VS Code: keep the shared launch/tasks configs, ignore personal state
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Claude Code per-machine settings (permission allowlist etc.)
+.claude/settings.local.json
+
+# Local notes / drafts (e.g. upstream bug reports) — not part of the project
+reports/
+
+# Per-machine build counter (drives FileVersion 1.0.0.N)
+build.number
