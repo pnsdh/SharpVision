@@ -15,14 +15,18 @@
          the PackageReference below and shown in the startup banner (GenerateBuildInfo). -->
     <LuminaVersion>7.7.1</LuminaVersion>
 
-    <!-- Which EXDSchema the generated sheet types are built from. "EXDSchema-experimental"
-         tracks the latest client; switch to "EXDSchema" (stable) if it ever breaks the build.
+    <!-- Which EXDSchema the generated sheet types are built from.
+           latest - external/EXDSchema, our own submodule on xivdev/EXDSchema's "latest"
+                    branch (tracks the newest client). Kept current automatically by
+                    .github/workflows/update-schema.yml, independent of Lumina.Excel.
+           stable - Lumina.Excel's pinned deps/EXDSchema; fallback if latest ever
+                    breaks the build (e.g. dotnet build -p:ExdSchema=stable).
          Single source of truth: drives the Lumina.Excel SchemaPath below and the schema
          name/version shown in the startup banner (GenerateBuildInfo). -->
-    <ExdSchema>EXDSchema-experimental</ExdSchema>
-    <ExdSchemaDir>$(MSBuildProjectDirectory)\external\Lumina.Excel\deps\$(ExdSchema)</ExdSchemaDir>
-    <ExdSchemaLabel>EXDSchema (stable)</ExdSchemaLabel>
-    <ExdSchemaLabel Condition="$(ExdSchema.Contains('experimental'))">EXDSchema (experimental)</ExdSchemaLabel>
+    <ExdSchema Condition="'$(ExdSchema)' == ''">latest</ExdSchema>
+    <ExdSchemaDir>$(MSBuildProjectDirectory)\external\EXDSchema</ExdSchemaDir>
+    <ExdSchemaDir Condition="'$(ExdSchema)' == 'stable'">$(MSBuildProjectDirectory)\external\Lumina.Excel\deps\EXDSchema</ExdSchemaDir>
+    <ExdSchemaLabel>EXDSchema ($(ExdSchema))</ExdSchemaLabel>
 
     <!-- Release version (SemVer). Bumped by hand when code/behavior changes, and the
          release commit is tagged vX.Y.Z. EXDSchema auto-updates do NOT bump it: the
@@ -60,7 +64,8 @@
        can be regenerated from the latest EXDSchema, matching the current client.
        SchemaPath is overridden here (as a global property, without editing the
        Lumina.Excel sources) to point the main Lumina.Excel.Sheets namespace at the
-       schema selected by the ExdSchema property above. -->
+       schema selected by the ExdSchema property above. The Lumina.Excel pin itself
+       (generator + its Lumina dependency) is bumped by hand, like Lumina. -->
   <ItemGroup>
     <ProjectReference Include="external/Lumina.Excel/src/Lumina.Excel/Lumina.Excel.csproj">
       <AdditionalProperties>SchemaPath=$(ExdSchemaDir)</AdditionalProperties>

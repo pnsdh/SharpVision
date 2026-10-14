@@ -59,8 +59,9 @@ annual gross revenue, or a non-profit). All other use requires a Six Labors
 Commercial License (<https://sixlabors.com/pricing/>).
 
 SharpVision is an open-source (MIT) project, so this use falls under the
-Apache 2.0 branch of the split license. (Note: ImageSharp 4.x is no longer
-offered under the split license, which is why this project pins 3.1.x.)
+Apache 2.0 branch of the split license. (Note: ImageSharp 4.x ships under the
+same split license, but validates a Six Labors license key at build time and
+fails Release builds without one, which is why this project pins 3.1.x.)
 
 ---
 
@@ -170,7 +171,8 @@ SOFTWARE.
 
 ## EXDSchema
 
-- Source: <https://github.com/xivdev/EXDSchema> (nested submodules under
+- Source: <https://github.com/xivdev/EXDSchema> (submodule `external/EXDSchema`,
+  `latest` branch; plus Lumina.Excel's nested copies under
   `external/Lumina.Excel/deps/`)
 - Used as: **build-time data** — Lumina.Excel generates the `Lumina.Excel.Sheets.*`
   accessor types (column names/order/types) from these YAML schemas. The

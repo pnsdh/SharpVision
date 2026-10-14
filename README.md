@@ -22,9 +22,15 @@ FINAL FANTASY XIV의 게임 데이터(`sqpack`)에서 **Excel 시트를 CSV로**
 
 ## 빌드
 
+서브모듈(Lumina.Excel, EXDSchema)이 필요하므로 `--recursive`로 받습니다.
+
 ```bash
+git clone --recursive https://github.com/pnsdh/SharpVision.git
+cd SharpVision
 dotnet build -c Release
 ```
+
+이미 받은 저장소를 갱신할 때는 서브모듈도 함께 맞춥니다: `git pull && git submodule update --init --recursive`. EXDSchema는 저장소가 매일 자동으로 최신화하므로(아래 [의존성](#의존성) 참고), 이렇게 받아서 다시 빌드하면 최신 게임 패치에 맞는 시트 타입을 쓰게 됩니다.
 
 빌드하면 실행 파일이 만들어집니다.
 
@@ -200,13 +206,16 @@ output/extract/<지역>/<버전>/
 
 | 패키지 | 버전 | 관리 | 용도 |
 |--------|------|------|------|
-| [Lumina](https://www.nuget.org/packages/Lumina) | 7.5.0 | NuGet | sqpack 읽기 / 파일 추출 |
-| [Lumina.Excel](https://github.com/NotAdam/Lumina.Excel) | master | **소스 빌드** (`external/`, 서브모듈) | 정의형 Excel 시트 타입 |
+| [Lumina](https://www.nuget.org/packages/Lumina) | 7.7.1 | NuGet (수동 갱신) | sqpack 읽기 / 파일 추출 |
+| [Lumina.Excel](https://github.com/NotAdam/Lumina.Excel) | master 고정 커밋 | **소스 빌드** (`external/Lumina.Excel`, 서브모듈, 수동 갱신) | 정의형 Excel 시트 타입 생성기 |
+| [EXDSchema](https://github.com/xivdev/EXDSchema) | `latest` 브랜치 | 서브모듈 (`external/EXDSchema`, **매일 자동 갱신**) | 시트 타입을 생성할 스키마 |
 | [SixLabors.ImageSharp](https://www.nuget.org/packages/SixLabors.ImageSharp) | 3.1.12 | NuGet | 텍스처 → PNG/JPEG 변환 |
 | [VGAudio](https://www.nuget.org/packages/VGAudio) | 2.2.1 | NuGet | CRI HCA 음원 디코딩 (.scd 일부) |
 
-- **Lumina.Excel**은 NuGet 대신 소스로 빌드합니다. 어떤 스키마로 `Lumina.Excel.Sheets.*` 타입을 생성할지는 `SharpVision.csproj`의 **`ExdSchema` 속성**이 정하며, 기본값은 `EXDSchema-experimental`(최신, 현재 클라이언트와 일치). 이 한 값이 Lumina.Excel의 `SchemaPath`와 기동 배너에 표시되는 스키마 이름·버전까지 함께 결정하므로, 최신 스키마가 빌드를 깨뜨리면 `EXDSchema`(stable)로만 바꾸면 됩니다(`dotnet build -p:ExdSchema=EXDSchema`처럼 일시적으로 덮어쓸 수도 있습니다).
-- ImageSharp는 4.x부터 상용 라이선스가 필요해, 무료(Split License)로 쓸 수 있는 최신판인 3.1.x를 사용합니다.
+- **Lumina.Excel**은 NuGet 대신 소스로 빌드합니다. 어떤 스키마로 `Lumina.Excel.Sheets.*` 타입을 생성할지는 `SharpVision.csproj`의 **`ExdSchema` 속성**이 정하며, 기본값은 `latest`(`external/EXDSchema`, 최신 클라이언트와 일치). 이 한 값이 Lumina.Excel의 `SchemaPath`와 기동 배너에 표시되는 스키마 이름·버전까지 함께 결정하므로, 최신 스키마가 빌드를 깨뜨리면 `dotnet build -p:ExdSchema=stable`로 Lumina.Excel에 고정된 stable 스키마로 빌드할 수 있습니다.
+- **EXDSchema 자동 갱신**: GitHub Action(`.github/workflows/update-schema.yml`)이 매일 `latest` 브랜치의 새 커밋을 확인해, 그 스키마로 **빌드가 통과할 때만** 서브모듈 포인터를 올리는 커밋을 main에 남깁니다. 새 스키마가 현재 생성기와 맞지 않아 빌드가 깨지면 반영하지 않고 실패로 남으며, 그때는 Lumina.Excel을 직접 갱신합니다.
+- **버전**: 프로그램 버전(SemVer, `SharpVision.csproj`의 `Version`)은 코드·동작이 바뀔 때만 올리고 `vX.Y.Z` 태그를 답니다. 스키마 자동 갱신은 버전을 올리지 않으며, 대신 기동 배너에 커밋 해시와 스키마 날짜가 함께 표시되어 빌드를 정확히 식별할 수 있습니다(예: `SharpVision v1.1.0 (abc1234)`).
+- ImageSharp는 3.1.x를 사용합니다. 4.x도 같은 Split License(오픈소스는 무료)이지만 빌드 시 Six Labors 라이선스 키를 검사해, 키 없이는 Release 빌드가 실패하기 때문입니다.
 
 ## 크레딧
 

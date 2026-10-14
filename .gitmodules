@@ -2,3 +2,7 @@
 	path = external/Lumina.Excel
 	url = https://github.com/NotAdam/Lumina.Excel.git
 	branch = master
+[submodule "external/EXDSchema"]
+	path = external/EXDSchema
+	url = https://github.com/xivdev/EXDSchema.git
+	branch = latest

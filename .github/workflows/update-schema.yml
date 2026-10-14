@@ -1,0 +1,62 @@
+# Keeps external/EXDSchema on the newest commit of xivdev/EXDSchema's "latest" branch,
+# so the generated sheet types follow new game patches without manual work.
+# A bump is committed only if the project still builds with it; if the new schema
+# breaks the build (e.g. it needs a newer Lumina.Excel generator), the run fails and
+# nothing is committed — bump Lumina.Excel by hand, then re-run.
+name: Update EXDSchema
+
+on:
+  schedule:
+    - cron: '23 3 * * *' # daily
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    # Windows: the project's MSBuild paths are Windows-style.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          submodules: recursive
+
+      - name: Bump EXDSchema to latest
+        id: bump
+        shell: bash
+        run: |
+          git submodule update --remote external/EXDSchema
+          if git diff --quiet -- external/EXDSchema; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "EXDSchema is already up to date."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git -C external/EXDSchema log -1 --format='Now at %h (%cs) %s'
+          fi
+
+      - uses: actions/setup-dotnet@v6
+        if: steps.bump.outputs.changed == 'true'
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build with the new schema
+        if: steps.bump.outputs.changed == 'true'
+        run: dotnet build SharpVision.csproj -c Release
+
+      - name: Commit and push
+        if: steps.bump.outputs.changed == 'true'
+        shell: bash
+        run: |
+          info=$(git -C external/EXDSchema log -1 --format='%cs, %h')
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add external/EXDSchema
+          git commit -m "chore(schema): EXDSchema latest 갱신 ($info)"
+          git pull --rebase origin main
+          git push origin HEAD:main
