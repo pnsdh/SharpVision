@@ -147,13 +147,15 @@ public static class CsvSheetExporter
     // version mismatch -> typed GetExcelSheet returns null). Reads columns from
     // the client's own EXH via RawExcelSheet, so it works regardless of version.
     // No schema names available -> no header (matches oxidizer for schema-less sheets).
-    public static void ExportRawFallback(IReadOnlyList<(Lumina.GameData Gd, string Code)> langs, bool overwrite)
+    // With <paramref name="sheets"/>, only those sheets are considered.
+    public static void ExportRawFallback(IReadOnlyList<(Lumina.GameData Gd, string Code)> langs, bool overwrite,
+        IReadOnlySet<string>? sheets = null)
     {
         // Build the work list first so progress has a total.
         var work = new List<(Lumina.GameData Gd, string Code, string Name)>();
         foreach (var (gd, code) in langs)
             foreach (var name in gd.Excel.SheetNames)
-                if (!AlreadyExported(code, name))
+                if ((sheets == null || sheets.Contains(name)) && !AlreadyExported(code, name))
                     work.Add((gd, code, name));
 
         if (work.Count == 0)

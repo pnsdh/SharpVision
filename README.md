@@ -100,6 +100,7 @@ SharpVision.exe <sqpackPath> <command> [options]
 |------|------|
 | `--overwrite` | 이미 있는 파일도 다시 추출합니다. **기본값은 건너뜀**(이어받기/빠른 재실행). |
 | `--lang <codes>` | 시트를 추출할 언어를 쉼표로 지정 (예: `en` 또는 `en,ja`). **기본값은 감지된 전부.** `csv`/`full`에만 영향(아이콘·맵·로딩은 언어 무관). 코드: `ja en de fr ko chs cht`. |
+| `--sheets <names>` | (`csv`) 지정한 시트만 쉼표로 추출 (예: `--sheets Action,Status`). 대소문자 무시. **기본값은 전부.** 없는 시트 이름이 섞이면 아무것도 쓰지 않고 오류로 종료하며, 요청한 시트가 추출되지 않은 경우에도 오류(종료 코드 1)로 끝납니다. |
 | `--range <start-end>` | (`icons`) 연속 아이콘 범위 (예: `--range 68000-68999`). **기본은 `1-259999`.** |
 | `--chunk <n>` | (`icons`) 아이콘 범위를 `n`개 단위 청크로 분할. |
 | `--index <k>` | (`icons`) `--chunk`와 함께 쓰는 0-기반 청크 번호. |
@@ -122,6 +123,9 @@ SharpVision.exe "C:\path\to\game\sqpack" csv --lang en
 
 # 이미 추출한 것도 덮어쓰며 추출
 SharpVision.exe "C:\path\to\game\sqpack" csv --overwrite
+
+# 필요한 시트만 추출 (--lang, --overwrite와 함께 쓸 수 있음)
+SharpVision.exe "C:\path\to\game\sqpack" csv --sheets Action,Status,TerritoryType --lang en
 
 # 특정 아이콘 범위(68000번대)만 추출
 SharpVision.exe "C:\path\to\game\sqpack" icons --range 68000-68999
@@ -154,6 +158,8 @@ SharpVision.exe diff korean
 ```
 
 `icons`/`maps`/`loading`/`sound`는 파일 단위로 **추가/삭제/변경**만 가립니다(새 음악, 바뀐 아이콘 등). 각 카테고리는 `assets/<category>.html`로도 나와, 변경된 에셋을 브라우저에서 한눈에 볼 수 있습니다(이미지는 old→new 썸네일, 사운드는 재생 플레이어 — 원본 파일을 `file://`로 참조하므로 추출 폴더가 그대로 있어야 함). `csv`는 시트 추가/삭제뿐 아니라 **행 단위 변경**(추가/삭제된 행, 그리고 변경된 행의 `컬럼: 옛값 → 새값` — 예: 번역으로 바뀐 스킬명)까지 비교합니다. 컬럼은 이름 기준으로 정렬해 비교하므로 패치 간 컬럼이 추가/삭제/이름변경/순서변경돼도 어긋나지 않습니다(헤더는 게임 버전이 아니라 추출 시점의 EXDSchema가 정함). 드물게 한쪽은 스키마(이름 헤더), 다른 쪽은 raw(헤더 없음)로 추출된 시트는 셀 비교가 부정확할 수 있어 ⚠ 경고로 표시합니다 — 이때도 행 추가/삭제는 RowId 기준이라 정확합니다.
+
+`csv --sheets`로 일부 시트만 추출한 언어 폴더(`csv/<lang>/.partial` 표시 파일이 있음)는 대부분의 시트가 없으므로, 그 폴더 때문에 생기는 시트 추가/삭제는 결과에서 빼고 ⚠ 경고로 알립니다. 양쪽에 다 있는 시트는 그대로 비교합니다. 같은 버전을 나중에 전체 추출하면 이미 있는 시트는 건너뛰고 나머지만 채운 뒤 표시 파일을 지웁니다.
 
 콘솔에는 카테고리별 추가/삭제/변경 개수 요약만 출력하고, 상세 리포트는 `output/diff/<지역>/<옛버전>__<새버전>/`에 남깁니다.
 

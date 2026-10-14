@@ -64,6 +64,10 @@ public sealed class AppOptions
     /// csv; icons/maps/loading are language-neutral.
     public List<string>? Languages;
 
+    /// Sheet names to extract (null = all). Only valid for csv; names are checked
+    /// against the client's sheet list once the sqpack is loaded.
+    public List<string>? Sheets;
+
     /// Pre-read language probe from the interactive picker (null for the CLI path).
     /// Carried so detection can reuse the already-loaded sqpack index.
     public LanguageDetection.Probe? LanguageProbe;
@@ -161,6 +165,29 @@ public sealed class AppOptions
             return ParseResult.Error;
         }
         options.Target = target;
+
+        if (HasFlag(tokens, "--sheets"))
+        {
+            if (target != ExtractTarget.Csv)
+            {
+                Style.Error("--sheets is only valid with the csv command.");
+                return ParseResult.Error;
+            }
+            if (!TryGetOptionValue(tokens, "--sheets", out var sheetCsv) || sheetCsv.StartsWith('-'))
+            {
+                Style.Error("--sheets needs a comma-separated list of sheet names, e.g. --sheets Action,Status.");
+                return ParseResult.Error;
+            }
+            options.Sheets = sheetCsv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (options.Sheets.Count == 0)
+            {
+                Style.Error("--sheets needs at least one sheet name.");
+                return ParseResult.Error;
+            }
+        }
 
         if (target is ExtractTarget.Icons or ExtractTarget.Full && !ParseIconRange(tokens, options))
             return ParseResult.Error;
@@ -297,7 +324,8 @@ public sealed class AppOptions
         Console.WriteLine();
         Style.Heading("Commands:");
         Console.WriteLine("  full       Extract everything (csv + maps + loading + all icons + sound).");
-        Console.WriteLine("  csv        Extract Excel sheets to CSV.");
+        Console.WriteLine("  csv        Extract Excel sheets to CSV. Options: --sheets <names> (comma-separated,");
+        Console.WriteLine("             e.g. Action,Status; default: all). Unknown names are an error.");
         Console.WriteLine("  icons      Extract icons. Options: --range <a-b> | --chunk <n> --index <k>,");
         Console.WriteLine("             --normal-only | --hd-only (default: both resolutions).");
         Console.WriteLine("  maps       Extract map images.");

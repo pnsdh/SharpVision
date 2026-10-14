@@ -62,7 +62,7 @@ public static class DiffRunner
         }
 
         WriteSummary(reportRoot, region, oldName, newName, counts, csv);
-        PrintSummary(counts, csv.HeaderMismatches, reportRoot);
+        PrintSummary(counts, csv, reportRoot);
         return true;
     }
 
@@ -121,6 +121,8 @@ public static class DiffRunner
         public List<string> Removed { get; } = new();  // sheets only in old
         public List<string> Changed { get; } = new();  // sheets with content changes
         public List<string> HeaderMismatches { get; } = new(); // schema-vs-raw structure differs
+        public List<string> PartialFolders { get; } = new(); // "old/en", "new/ja": csv --sheets subsets
+        public int PartialSkipped;                            // added/removed hidden because of those
     }
 
     private static CsvResult DiffCsv(string oldDir, string newDir, string reportRoot)
@@ -129,9 +131,25 @@ public static class DiffRunner
         var newSheets = DiffFs.Enumerate(Path.Combine(newDir, "csv"), "*.csv");
         var (added, removed, common) = DiffFs.Partition(oldSheets, newSheets);
 
+        // A partial (csv --sheets) language folder lacks most sheets, so "only in the
+        // other side" says nothing there: an added sheet is unreliable when the old
+        // side's folder is partial, a removed one when the new side's is.
+        var oldPartial = PartialLanguages(Path.Combine(oldDir, "csv"));
+        var newPartial = PartialLanguages(Path.Combine(newDir, "csv"));
+
         var result = new CsvResult();
-        result.Added.AddRange(added);
-        result.Removed.AddRange(removed);
+        result.PartialFolders.AddRange(oldPartial.Order().Select(l => $"old/{l}"));
+        result.PartialFolders.AddRange(newPartial.Order().Select(l => $"new/{l}"));
+        foreach (var rel in added)
+        {
+            if (oldPartial.Contains(LanguageOf(rel))) result.PartialSkipped++;
+            else result.Added.Add(rel);
+        }
+        foreach (var rel in removed)
+        {
+            if (newPartial.Contains(LanguageOf(rel))) result.PartialSkipped++;
+            else result.Removed.Add(rel);
+        }
 
         if (common.Count > 0)
         {
@@ -167,6 +185,24 @@ public static class DiffRunner
         result.Changed.Sort(StringComparer.OrdinalIgnoreCase);
         result.HeaderMismatches.Sort(StringComparer.OrdinalIgnoreCase);
         return result;
+    }
+
+    // Language folders under csv/ that carry the partial marker.
+    private static HashSet<string> PartialLanguages(string csvDir)
+    {
+        var langs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (Directory.Exists(csvDir))
+            foreach (var dir in Directory.GetDirectories(csvDir))
+                if (CsvPartial.IsPartial(dir))
+                    langs.Add(Path.GetFileName(dir));
+        return langs;
+    }
+
+    // "en/Action.csv" -> "en".
+    private static string LanguageOf(string rel)
+    {
+        int slash = rel.IndexOf('/');
+        return slash < 0 ? string.Empty : rel[..slash];
     }
 
     // The diff rows for one sheet (Change,Key,Column,Old,New), in report order.
@@ -309,6 +345,11 @@ public static class DiffRunner
         AppendSheetList(sb, "Removed sheets", csv.Removed);
         AppendSheetList(sb, "Changed sheets (detail in csv/)", csv.Changed);
         AppendSheetList(sb, "⚠ Schema/raw structure mismatch (cell diff unreliable)", csv.HeaderMismatches);
+        if (csv.PartialFolders.Count > 0)
+            sb.Append("\n## ⚠ Partial CSV extracts (csv --sheets)\n\n")
+              .Append("These language folders hold only some sheets, so ").Append(csv.PartialSkipped)
+              .Append(" added/removed sheet(s) there were left out (only sheets present on both sides are compared):\n\n")
+              .Append(string.Concat(csv.PartialFolders.Select(f => $"- {f}\n")));
 
         sb.Append("\n## Assets\n\nPer category, see `assets/<category>.html` for a visual gallery of the changed\nassets, and `assets/<category>-{added,removed,changed}.txt` for the path lists.\n");
 
@@ -324,8 +365,9 @@ public static class DiffRunner
             sb.Append("- ").Append(s).Append('\n');
     }
 
-    private static void PrintSummary(List<CatCount> counts, List<string> headerMismatches, string reportRoot)
+    private static void PrintSummary(List<CatCount> counts, CsvResult csv, string reportRoot)
     {
+        var headerMismatches = csv.HeaderMismatches;
         int wa = counts.Max(c => c.Added.ToString().Length);
         int wr = counts.Max(c => c.Removed.ToString().Length);
         int wc = counts.Max(c => c.Changed.ToString().Length);
@@ -347,6 +389,14 @@ public static class DiffRunner
             Style.Warn($"{headerMismatches.Count} sheet(s) had a schema-vs-raw structure mismatch; their " +
                        "cell-level diffs are positional best-effort (row add/remove is still reliable).");
             Style.Hint("Re-extract both versions with the same build/schema for an exact cell diff.");
+        }
+
+        if (csv.PartialFolders.Count > 0)
+        {
+            Console.WriteLine();
+            Style.Warn($"Partial CSV extract(s) ({string.Join(", ", csv.PartialFolders)}): {csv.PartialSkipped} " +
+                       "added/removed sheet(s) there were left out; only sheets present on both sides are compared.");
+            Style.Hint("Run a full csv extraction of that version to fill in the rest (existing files are skipped).");
         }
 
         Console.WriteLine();

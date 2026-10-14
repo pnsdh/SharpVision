@@ -118,6 +118,18 @@ class Program
         if (options.LanguageProbe == null)
             ClientInfo.Print(primary.Gd, codes);
 
+        // csv --sheets: check the names against the client's sheet list before writing
+        // anything, so a typo fails the run instead of being silently skipped.
+        HashSet<string>? sheets = null;
+        if (options.Sheets != null)
+        {
+            if (!SheetExporter.ResolveSheetNames(primary.Gd, options.Sheets, out sheets, out var unknown))
+            {
+                Style.Error($"Unknown sheet name(s): {string.Join(", ", unknown)}.");
+                return 1;
+            }
+        }
+
         // Warn (and, when interactive, confirm) if the output drive's free space is
         // below this run's estimated output size.
         long required = DiskGuard.RequiredBytes(options.Target, options.IconKind,
@@ -137,7 +149,18 @@ class Program
                 break;
 
             case ExtractTarget.Csv:
-                SheetExporter.ExportCsv(languages, options.Overwrite);
+                SheetExporter.ExportCsv(languages, options.Overwrite, sheets);
+                if (sheets != null && !DiskGuard.Tripped)
+                {
+                    // A subset run is typically scripted: report a requested sheet that
+                    // didn't come out as a failure, not just a logged line.
+                    var missing = SheetExporter.MissingOutputs(languages, sheets);
+                    if (missing.Count > 0)
+                    {
+                        Style.Error($"\nRequested sheet(s) not extracted: {string.Join(", ", missing)}.");
+                        return 1;
+                    }
+                }
                 break;
 
             case ExtractTarget.Icons:
