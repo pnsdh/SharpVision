@@ -43,11 +43,26 @@
   <ItemGroup>
     <Compile Remove="external/**/*.cs" />
     <PackageReference Include="Lumina" Version="$(LuminaVersion)" />
-    <!-- ImageSharp 4.x requires a paid commercial license; 3.1.x is the latest free (Split License) version. -->
+    <!-- Stay on ImageSharp 3.1.x: 4.x has the same Split License (free for open source)
+         but validates a Six Labors license key at build time, and Release builds fail
+         without one — a burden on everyone building this repo from source. -->
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <!-- Managed (cross-platform) decoder for CRI HCA, used for the few BGM .scd
          that store HCA instead of Ogg Vorbis. -->
     <PackageReference Include="VGAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <!-- ImageSharp 3.1.12 advisories fixed only in 4.1.2+ (see above for why we stay on
+       3.1). None is reachable here: we only build images from raw pixels
+       (Image.LoadPixelData) and encode PNG/JPEG — no TIFF encode/decode, no ICC profile
+       parsing, no HistogramEqualization. Suppressed one by one so any NEW advisory
+       still surfaces as a build warning. Re-check if image handling changes. -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j3p4-wp97-rph4" /> <!-- HistogramEqualization -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j9gm-c75j-xc9q" /> <!-- TIFF CCITT T4 encoder -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" /> <!-- TIFF CCITT T6 encoder -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gwg2-r3hj-4w44" /> <!-- ICC CLUT parsing -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" /> <!-- BigTIFF IFD decode loop -->
   </ItemGroup>
 
   <!-- Lumina.Excel is built from source (not NuGet) so the generated sheet types
