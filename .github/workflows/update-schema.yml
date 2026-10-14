@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: '23 3 * * *' # daily
   workflow_dispatch:
+    inputs:
+      build:
+        description: 'Build even if the schema is unchanged (pipeline check; never commits)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}
@@ -31,6 +36,9 @@ jobs:
         id: bump
         shell: bash
         run: |
+          # actions/checkout fetches submodules at their pinned commit only (shallow, no
+          # branch refs), so fetch the tracked branch before --remote can resolve it.
+          git -C external/EXDSchema fetch --no-tags --depth=1 origin +refs/heads/latest:refs/remotes/origin/latest
           git submodule update --remote external/EXDSchema
           if git diff --quiet -- external/EXDSchema; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -41,12 +49,12 @@ jobs:
           fi
 
       - uses: actions/setup-dotnet@v6
-        if: steps.bump.outputs.changed == 'true'
+        if: steps.bump.outputs.changed == 'true' || inputs.build
         with:
           dotnet-version: '10.0.x'
 
       - name: Build with the new schema
-        if: steps.bump.outputs.changed == 'true'
+        if: steps.bump.outputs.changed == 'true' || inputs.build
         run: dotnet build SharpVision.csproj -c Release
 
       - name: Commit and push
