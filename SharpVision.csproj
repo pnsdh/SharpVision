@@ -24,20 +24,11 @@
     <ExdSchemaLabel>EXDSchema (stable)</ExdSchemaLabel>
     <ExdSchemaLabel Condition="$(ExdSchema.Contains('experimental'))">EXDSchema (experimental)</ExdSchemaLabel>
 
-    <!-- Version 1.0.0.N, N incremented by 1 each build. N is read here at
-         evaluation (so the SDK bakes it into the assembly) from the gitignored
-         "build.number" file, and written back by the GenerateBuildInfo target.
-         AssemblyVersion stays fixed; only File/Informational version carry N. -->
-    <_CounterFile>$(MSBuildProjectDirectory)\build.number</_CounterFile>
-    <_PrevBuildRaw>0</_PrevBuildRaw>
-    <_PrevBuildRaw Condition="Exists('$(_CounterFile)')">$([System.IO.File]::ReadAllText('$(_CounterFile)'))</_PrevBuildRaw>
-    <_PrevBuild>$(_PrevBuildRaw.Trim())</_PrevBuild>
-    <_PrevBuild Condition="'$(_PrevBuild)' == ''">0</_PrevBuild>
-    <BuildNumber>$([MSBuild]::Add($(_PrevBuild), 1))</BuildNumber>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.$(BuildNumber)</FileVersion>
-    <InformationalVersion>1.0.0.$(BuildNumber)</InformationalVersion>
-    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- Release version (SemVer). Bumped by hand when code/behavior changes, and the
+         release commit is tagged vX.Y.Z. EXDSchema auto-updates do NOT bump it: the
+         banner also shows the commit hash and the schema date, so any build is still
+         exactly identifiable. -->
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -82,12 +73,23 @@
     <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
   </ItemGroup>
 
-  <!-- On each real build: capture the referenced submodule versions via git, write
-       a generated BuildInfo source the startup banner reads, and persist the
-       incremented build number. Skipped for design-time/IntelliSense builds.
-       Tolerant of git/submodule being unavailable (values fall back to "unknown"). -->
+  <!-- On each real build: capture this repo's commit (with "-dirty" when tracked files
+       have uncommitted changes) and the referenced submodule versions via git, and
+       write a generated BuildInfo source the startup banner reads. Skipped for
+       design-time/IntelliSense builds. Tolerant of git/submodule being unavailable
+       (values fall back to "unknown"). -->
   <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-parse --short HEAD"
+          Condition="Exists('$(MSBuildProjectDirectory)\.git')"
+          ConsoleToMSBuild="true" ContinueOnError="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_Commit" />
+    </Exec>
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; status --porcelain --untracked-files=no"
+          Condition="'$(_Commit)' != ''"
+          ConsoleToMSBuild="true" ContinueOnError="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_Dirty" />
+    </Exec>
     <Exec Command="git -C &quot;$(MSBuildProjectDirectory)\external\Lumina.Excel&quot; rev-parse --short HEAD"
           Condition="Exists('$(MSBuildProjectDirectory)\external\Lumina.Excel\.git')"
           ConsoleToMSBuild="true" ContinueOnError="true" StandardOutputImportance="low">
@@ -99,6 +101,9 @@
       <Output TaskParameter="ConsoleOutput" PropertyName="_ExdSchemaVer" />
     </Exec>
     <PropertyGroup>
+      <_Commit>$(_Commit.Trim())</_Commit>
+      <_Commit Condition="'$(_Commit)' != '' and '$(_Dirty)' != ''">$(_Commit)-dirty</_Commit>
+      <_Commit Condition="'$(_Commit)' == ''">unknown</_Commit>
       <_LuminaExcelVer Condition="'$(_LuminaExcelVer)' == ''">unknown</_LuminaExcelVer>
       <_ExdSchemaVer Condition="'$(_ExdSchemaVer)' == ''">unknown</_ExdSchemaVer>
       <_BuildInfoFile>$(IntermediateOutputPath)BuildInfo.g.cs</_BuildInfoFile>
@@ -107,7 +112,8 @@
       <_BuildInfoLine Include="namespace SharpVision%3B" />
       <_BuildInfoLine Include="internal static class BuildInfo" />
       <_BuildInfoLine Include="{" />
-      <_BuildInfoLine Include="    public const string Version = &quot;1.0.0.$(BuildNumber)&quot;%3B" />
+      <_BuildInfoLine Include="    public const string Version = &quot;$(Version)&quot;%3B" />
+      <_BuildInfoLine Include="    public const string Commit = &quot;$(_Commit)&quot;%3B" />
       <_BuildInfoLine Include="    public const string Lumina = &quot;$(LuminaVersion)&quot;%3B" />
       <_BuildInfoLine Include="    public const string LuminaExcel = &quot;$(_LuminaExcelVer.Trim())&quot;%3B" />
       <_BuildInfoLine Include="    public const string ExdSchemaName = &quot;$(ExdSchemaLabel)&quot;%3B" />
@@ -118,7 +124,6 @@
     <ItemGroup>
       <FileWrites Include="$(_BuildInfoFile)" />
     </ItemGroup>
-    <WriteLinesToFile File="$(_CounterFile)" Lines="$(BuildNumber)" Overwrite="true" />
   </Target>
 
 </Project>

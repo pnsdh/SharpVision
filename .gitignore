@@ -22,6 +22,3 @@ obj/
 
 # Local notes / drafts (e.g. upstream bug reports) — not part of the project
 reports/
-
-# Per-machine build counter (drives FileVersion 1.0.0.N)
-build.number
