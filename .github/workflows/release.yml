@@ -1,0 +1,83 @@
+# Builds a Windows x64 binary for a vX.Y.Z tag and attaches it to that tag's GitHub
+# Release as SharpVision-vX.Y.Z-win-x64.zip (framework-dependent single-file exe —
+# needs the .NET 10 runtime — plus LICENSE and THIRD-PARTY-NOTICES.md).
+#
+# Triggers:
+#  - pushing a v* tag (manual code releases);
+#  - workflow_call from update-schema.yml after it tags a schema-refresh release
+#    (tags pushed with GITHUB_TOKEN don't fire push events, so it calls us directly);
+#  - workflow_dispatch to (re)build the release for an existing tag.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (e.g. v1.1.0)'
+        type: string
+        required: true
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check tag matches <Version>
+        shell: bash
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' SharpVision.csproj)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match <Version>$version</Version> in SharpVision.csproj"
+            exit 1
+          fi
+
+      - name: Publish
+        run: dotnet publish SharpVision.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist/pkg
+          cp publish/SharpVision.exe LICENSE THIRD-PARTY-NOTICES.md dist/pkg/
+          echo "ASSET=dist/SharpVision-$TAG-win-x64.zip" >> "$GITHUB_ENV"
+          echo "SCHEMA=$(git -C external/EXDSchema log -1 --format='%cs, %h')" >> "$GITHUB_ENV"
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist/pkg/* -DestinationPath $env:ASSET
+
+      - name: Create or update release
+        shell: bash
+        run: |
+          notes="Windows x64, framework-dependent (requires the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)).
+          EXDSchema: latest ($SCHEMA)"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" --title "SharpVision $TAG" --notes "$notes" --generate-notes --verify-tag
+          fi

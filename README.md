@@ -20,9 +20,13 @@ FINAL FANTASY XIV의 게임 데이터(`sqpack`)에서 **Excel 시트를 CSV로**
   예) `.../FINAL FANTASY XIV - A Realm Reborn/game/sqpack`
 - 충분한 디스크 여유 공간: 전체 추출은 ~15 GB 규모입니다(아이콘 ~9 GB, 음원 ~5 GB, 나머지 합쳐 ~0.4 GB). 출력 드라이브 여유가 그 추출의 예상 필요량(타깃·범위·해상도·언어 수로 추정)보다 적으면 시작 전에 경고하고(대화형은 계속 여부를 물음), 추출 도중 공간이 바닥나면 깨끗이 멈춥니다(다시 실행하면 이어받음).
 
+## 내려받기
+
+[Releases](https://github.com/pnsdh/SharpVision/releases)에서 `SharpVision-vX.Y.Z-win-x64.zip`을 받아 풀면 됩니다. [.NET 10 런타임](https://dotnet.microsoft.com/download/dotnet/10.0)이 설치되어 있어야 합니다(framework-dependent 단일 실행 파일). 최신 EXDSchema가 반영될 때마다 patch 릴리스가 자동으로 나오므로, 최신 릴리스를 받으면 최신 게임 패치에 맞는 스키마를 쓰게 됩니다.
+
 ## 빌드
 
-서브모듈(Lumina.Excel, EXDSchema)이 필요하므로 `--recursive`로 받습니다.
+직접 빌드하려면 서브모듈(Lumina.Excel, EXDSchema)이 필요하므로 `--recursive`로 받습니다.
 
 ```bash
 git clone --recursive https://github.com/pnsdh/SharpVision.git
@@ -213,8 +217,8 @@ output/extract/<지역>/<버전>/
 | [VGAudio](https://www.nuget.org/packages/VGAudio) | 2.2.1 | NuGet | CRI HCA 음원 디코딩 (.scd 일부) |
 
 - **Lumina.Excel**은 NuGet 대신 소스로 빌드합니다. 어떤 스키마로 `Lumina.Excel.Sheets.*` 타입을 생성할지는 `SharpVision.csproj`의 **`ExdSchema` 속성**이 정하며, 기본값은 `latest`(`external/EXDSchema`, 최신 클라이언트와 일치). 이 한 값이 Lumina.Excel의 `SchemaPath`와 기동 배너에 표시되는 스키마 이름·버전까지 함께 결정하므로, 최신 스키마가 빌드를 깨뜨리면 `dotnet build -p:ExdSchema=stable`로 Lumina.Excel에 고정된 stable 스키마로 빌드할 수 있습니다.
-- **EXDSchema 자동 갱신**: GitHub Action(`.github/workflows/update-schema.yml`)이 매일 `latest` 브랜치의 새 커밋을 확인해, 그 스키마로 **빌드가 통과할 때만** 서브모듈 포인터를 올리는 커밋을 main에 남깁니다. 새 스키마가 현재 생성기와 맞지 않아 빌드가 깨지면 반영하지 않고 실패로 남으며, 그때는 Lumina.Excel을 직접 갱신합니다.
-- **버전**: 프로그램 버전(SemVer, `SharpVision.csproj`의 `Version`)은 코드·동작이 바뀔 때만 올리고 `vX.Y.Z` 태그를 답니다. 스키마 자동 갱신은 버전을 올리지 않으며, 대신 기동 배너에 커밋 해시와 스키마 날짜가 함께 표시되어 빌드를 정확히 식별할 수 있습니다(예: `SharpVision v1.1.0 (abc1234)`).
+- **EXDSchema 자동 갱신**: GitHub Action(`.github/workflows/update-schema.yml`)이 매일 `latest` 브랜치의 새 커밋을 확인해, 그 스키마로 **빌드가 통과할 때만** 서브모듈 포인터를 올리고 patch 버전을 하나 올려(예: 1.1.0 → 1.1.1) 태그·릴리스까지 만듭니다. 새 스키마가 현재 생성기와 맞지 않아 빌드가 깨지면 반영하지 않고 실패로 남으며, 그때는 Lumina.Excel을 직접 갱신합니다.
+- **버전·릴리스**: 프로그램 버전(SemVer, `SharpVision.csproj`의 `Version`)은 코드·동작이 바뀔 때 직접 올리고(기능: minor, 수정: patch) `vX.Y.Z` 태그를 push하면, `.github/workflows/release.yml`이 Windows x64 실행 파일을 그 태그의 릴리스에 올립니다. 스키마 갱신은 위처럼 patch 릴리스로 자동 발행됩니다. 기동 배너에는 커밋 해시와 스키마 날짜도 함께 표시됩니다(예: `SharpVision v1.1.0 (abc1234)`).
 - ImageSharp는 3.1.x를 사용합니다. 4.x도 같은 Split License(오픈소스는 무료)이지만 빌드 시 Six Labors 라이선스 키를 검사해, 키 없이는 Release 빌드가 실패하기 때문입니다.
 
 ## 크레딧

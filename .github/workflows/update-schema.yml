@@ -3,6 +3,8 @@
 # A bump is committed only if the project still builds with it; if the new schema
 # breaks the build (e.g. it needs a newer Lumina.Excel generator), the run fails and
 # nothing is committed — bump Lumina.Excel by hand, then re-run.
+# Each bump is also a patch release: <Version> +0.0.1, tag vX.Y.Z, and release.yml
+# attaches the Windows binary, so release users get the new schema too.
 name: Update EXDSchema
 
 on:
@@ -26,6 +28,8 @@ jobs:
   update:
     # Windows: the project's MSBuild paths are Windows-style.
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.commit.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,14 +61,32 @@ jobs:
         if: steps.bump.outputs.changed == 'true' || inputs.build
         run: dotnet build SharpVision.csproj -c Release
 
-      - name: Commit and push
+      - name: Commit, bump patch version, tag and push
+        id: commit
         if: steps.bump.outputs.changed == 'true'
         shell: bash
         run: |
           info=$(git -C external/EXDSchema log -1 --format='%cs, %h')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add external/EXDSchema
-          git commit -m "chore(schema): EXDSchema latest 갱신 ($info)"
-          git pull --rebase origin main
+          # Catch up with anything pushed since checkout before reading <Version>.
+          git pull --rebase --autostash origin main
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' SharpVision.csproj)
+          IFS=. read -r major minor patch <<< "$version"
+          next="$major.$minor.$((patch + 1))"
+          sed -i "s:<Version>$version</Version>:<Version>$next</Version>:" SharpVision.csproj
+          git add external/EXDSchema SharpVision.csproj
+          git commit -m "chore(schema): EXDSchema latest 갱신 ($info) → v$next"
+          git tag -a "v$next" -m "SharpVision v$next — EXDSchema latest 갱신 ($info)"
           git push origin HEAD:main
+          git push origin "v$next"
+          echo "tag=v$next" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: update
+    if: needs.update.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.update.outputs.tag }}
+    permissions:
+      contents: write

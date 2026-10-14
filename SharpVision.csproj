@@ -28,10 +28,11 @@
     <ExdSchemaDir Condition="'$(ExdSchema)' == 'stable'">$(MSBuildProjectDirectory)\external\Lumina.Excel\deps\EXDSchema</ExdSchemaDir>
     <ExdSchemaLabel>EXDSchema ($(ExdSchema))</ExdSchemaLabel>
 
-    <!-- Release version (SemVer). Bumped by hand when code/behavior changes, and the
-         release commit is tagged vX.Y.Z. EXDSchema auto-updates do NOT bump it: the
-         banner also shows the commit hash and the schema date, so any build is still
-         exactly identifiable. -->
+    <!-- Release version (SemVer); the release commit is tagged vX.Y.Z and the tag
+         publishes a Windows binary (.github/workflows/release.yml). Code/behavior
+         changes bump it by hand (feature: minor, fix: patch). EXDSchema auto-updates
+         bump the patch automatically (update-schema.yml), so release binaries carry
+         the new schema too. The banner also shows the commit hash and schema date. -->
     <Version>1.1.0</Version>
   </PropertyGroup>
 
