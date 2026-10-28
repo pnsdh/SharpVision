@@ -59,7 +59,7 @@ annual gross revenue, or a non-profit). All other use requires a Six Labors
 Commercial License (<https://sixlabors.com/pricing/>).
 
 SharpVision is an open-source (MIT) project, so this use falls under the
-Apache 2.0 branch of the split license. (Note: ImageSharp 4.x ships under the
+Apache 2.0 branch of the split license. (Note: ImageSharp 3.2+ and 4.x ship under the
 same split license, but validates a Six Labors license key at build time and
 fails Release builds without one, which is why this project pins 3.1.x.)
 
