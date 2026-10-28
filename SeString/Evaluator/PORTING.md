@@ -92,30 +92,30 @@ straight from the page — `CsvSheetExporter.StoredSubrowId` does
 `ExcelPage.ReadUInt16(RowOffset - 2)` (big-endian; `RowOffset` points at the
 field data). Used for both typed and raw subrow CSV.
 
-## Subrow shared string buffer (Lumina workaround — revert when fixed)
+## Subrow shared string buffer (fixed upstream in Lumina 7.7.2)
 
-Lumina has a bug reading **string columns of subrow sheets**. `ExcelPage.ReadString(fieldPos, structOffset)`
-resolves a string at `ReadUInt32(fieldPos) + structOffset + dataOffset`, and for
-subrows Lumina passes `structOffset` = *that subrow's own* `RowOffset`. But the
-EXD lays out one **shared** string pool for the whole parent row, anchored right
-after the last subrow's fixed data — so only the **last** subrow resolves
-correctly. Every earlier subrow reads from the wrong base and comes out
-fragmented/empty (e.g. `QuestDefineClient` row 69939 gave `_COSPLAY0` instead of
-`NPCEQUIP_COSPLAY0`).
+Lumina ≤ 7.7.1 had a bug reading **string columns of subrow sheets**:
+`ExcelPage.ReadString(fieldPos, structOffset)` resolved a string at
+`ReadUInt32(fieldPos) + structOffset + dataOffset` with `structOffset` = *that
+subrow's own* `RowOffset`. But the EXD lays out one **shared** string pool for the
+whole parent row, anchored right after the last subrow's fixed data — so only the
+**last** subrow resolved correctly; earlier ones came out fragmented/empty (e.g.
+`QuestDefineClient` row 69939 gave `_COSPLAY0` instead of `NPCEQUIP_COSPLAY0`).
 
-**Workaround** (`CsvSheetExporter.ExportSubrow<T>`): after the normal typed
-flatten, re-read every `String` column using the **last subrow's `RowOffset`** as
-the base for *all* subrows of the row. Verified against oxidizer across rows with
-2/3/10/26 subrows — byte-identical. For single-subrow rows this equals Lumina's
-own base (no change). Guarded by `values.Count == rawColumnCount` (flat 1:1
-sheets only) and wrapped in try/catch so a geometry mismatch can never abort the
-export. This fixed `QuestDefineClient` and `CustomTalkDefineClient`.
+SharpVision used to work around it in `CsvSheetExporter.ExportSubrow<T>` by
+re-reading every `String` column against the last subrow's `RowOffset`. Lumina
+7.7.2 fixed it upstream ([NotAdam/Lumina#126](https://github.com/NotAdam/Lumina/issues/126)),
+so the workaround was removed. Verified on the Korean client (2026.10.06), full
+CSV extract: Lumina 7.7.2 without the workaround is byte-identical to 7.7.1 with
+it (all 7912 files), while 7.7.1 without it differs in exactly
+`CustomTalkDefineClient` and `QuestDefineClient`.
 
-**To revert when Lumina fixes the bug:** delete the `fixStrings`/`sharedBase`
-block and the per-string-column re-read loop in `ExportSubrow<T>`, plus the
-`GetStringColumns` helper. The `--dump-subrow` diagnostic (`SeStringDump.cs`,
-printing the candidate bases) can confirm whether Lumina's own read is correct
-again.
+Note: 7.7.2 locates the row's string pool from the subrow's **stored** id (see
+above), which only matches the physical position when stored ids are sequential.
+14 subrow sheets have non-sequential stored ids, but none has a string column
+(checked against EXDSchema `columns.yml`), so this doesn't affect output today.
+The `dump subrow` diagnostic (`SeStringDump.cs`) prints the candidate bases if
+this ever needs re-checking.
 
 ## Known residual differences vs oxidizer (NOT port bugs)
 

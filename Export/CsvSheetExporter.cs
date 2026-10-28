@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using Lumina.Excel;
-using SharpVision.SeStrings;
 
 namespace SharpVision.Export;
 
@@ -73,7 +72,6 @@ public static class CsvSheetExporter
         }
 
         var props = RowFlattener.GetDataProperties(typeof(T));
-        var (rawColumnCount, stringCols) = GetStringColumns(lumina, typeof(T).Name);
 
         AtomicWrite.To(path, tmp =>
         {
@@ -81,51 +79,13 @@ public static class CsvSheetExporter
             bool headerWritten = false;
             foreach (var rows in sheet)
             {
-                var subrows = new List<T>();
-                foreach (var r in rows)
-                    subrows.Add(r);
-
-                // Base for the row's shared string pool (Lumina subrow string-buffer
-                // workaround; see PORTING.md "Subrow shared string buffer").
-                // Lumina reads each subrow's strings against that subrow's own
-                // RowOffset; that's only correct for the LAST subrow, because the
-                // EXD anchors the shared string pool right after it. So all subrows
-                // must resolve strings against the last subrow's RowOffset. (For a
-                // single-subrow row this equals Lumina's own base, i.e. no change.)
-                bool fixStrings = stringCols.Count > 0 && subrows.Count > 0;
-                nuint sharedBase = fixStrings ? (nuint)subrows[subrows.Count - 1].RowOffset : 0;
-
-                foreach (var row in subrows)
+                foreach (var row in rows)
                 {
                     object boxed = row;
                     var names = new List<string>();
                     var values = new List<string>();
                     foreach (var p in props)
                         RowFlattener.Flatten(p.Name, p.GetValue(boxed), names, values);
-
-                    // Work around Lumina's subrow string-buffer bug: re-read string
-                    // columns against the row's shared pool base. Only for flat sheets
-                    // (1:1 column<->value), which is where it's safe and needed.
-                    // Guarded so a geometry mismatch can never abort the whole export.
-                    if (fixStrings && values.Count == rawColumnCount)
-                    {
-                        var page = row.ExcelPage;
-                        nuint rowOff = (nuint)row.RowOffset;
-                        foreach (var (idx, fieldOffset) in stringCols)
-                        {
-                            try
-                            {
-                                // ReadString(fieldPos, base): reads the u32 offset at the
-                                // field, then the string at base + offset.
-                                values[idx] = SeStringMarkdown.Format(page.ReadString(rowOff + fieldOffset, sharedBase));
-                            }
-                            catch (Exception)
-                            {
-                                // Keep Lumina's value if the corrected read fails for any
-                                // reason (off-page, layout assumption no longer holds, etc.).
-                            }
-                        }
-                    }
 
                     if (!headerWritten)
                     {
@@ -220,21 +180,4 @@ public static class CsvSheetExporter
     // big-endian u16 two bytes before it).
     private static ushort StoredSubrowId(ExcelPage page, nuint rowOffset) =>
         page.ReadUInt16(rowOffset - (nuint)2);
-
-    // Returns the sheet's data-column count and the String columns (index + field
-    // offset), used to re-read subrow strings from the shared buffer.
-    private static (int ColumnCount, List<(int Index, uint Offset)> StringColumns) GetStringColumns(Lumina.GameData lumina, string sheetName)
-    {
-        var stringColumns = new List<(int, uint)>();
-        var raw = lumina.Excel.GetRawSheet(sheetName, null);
-        if (raw == null)
-            return (0, stringColumns);
-
-        int count = raw.Columns.Count;
-        for (int c = 0; c < count; c++)
-            if (raw.Columns[c].Type.ToString() == "String")
-                stringColumns.Add((c, (uint)raw.GetColumnOffset(c)));
-
-        return (count, stringColumns);
-    }
 }

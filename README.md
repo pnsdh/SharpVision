@@ -210,7 +210,7 @@ output/extract/<지역>/<버전>/
 
 | 패키지 | 버전 | 관리 | 용도 |
 |--------|------|------|------|
-| [Lumina](https://www.nuget.org/packages/Lumina) | 7.7.1 | NuGet (수동 갱신) | sqpack 읽기 / 파일 추출 |
+| [Lumina](https://www.nuget.org/packages/Lumina) | 7.7.2 | NuGet (수동 갱신) | sqpack 읽기 / 파일 추출 |
 | [Lumina.Excel](https://github.com/NotAdam/Lumina.Excel) | master 고정 커밋 | **소스 빌드** (`external/Lumina.Excel`, 서브모듈, 수동 갱신) | 정의형 Excel 시트 타입 생성기 |
 | [EXDSchema](https://github.com/xivdev/EXDSchema) | `latest` 브랜치 | 서브모듈 (`external/EXDSchema`, **매일 자동 갱신**) | 시트 타입을 생성할 스키마 |
 | [SixLabors.ImageSharp](https://www.nuget.org/packages/SixLabors.ImageSharp) | 3.1.12 | NuGet | 텍스처 → PNG/JPEG 변환 |

@@ -13,7 +13,7 @@
 
     <!-- Base Lumina (sqpack reader) package version. Single source of truth: used by
          the PackageReference below and shown in the startup banner (GenerateBuildInfo). -->
-    <LuminaVersion>7.7.1</LuminaVersion>
+    <LuminaVersion>7.7.2</LuminaVersion>
 
     <!-- Which EXDSchema the generated sheet types are built from.
            latest - external/EXDSchema, our own submodule on xivdev/EXDSchema's "latest"
@@ -33,7 +33,7 @@
          changes bump it by hand (feature: minor, fix: patch). EXDSchema auto-updates
          bump the patch automatically (update-schema.yml), so release binaries carry
          the new schema too. The banner also shows the commit hash and schema date. -->
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
