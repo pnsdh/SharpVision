@@ -1,8 +1,10 @@
 # Keeps external/EXDSchema on the newest commit of xivdev/EXDSchema's "latest" branch,
 # so the generated sheet types follow new game patches without manual work.
-# A bump is committed only if the project still builds with it; if the new schema
-# breaks the build (e.g. it needs a newer Lumina.Excel generator), the run fails and
-# nothing is committed — bump Lumina.Excel by hand, then re-run.
+# It moves to the newest commit that still builds (.github/scripts/update-schema.sh
+# walks back from the tip), so one broken upstream commit only holds back the commits
+# from it onward. If none of the new commits builds (e.g. the schema needs a newer
+# Lumina.Excel generator), the run fails and nothing is committed — bump Lumina.Excel
+# by hand, then re-run.
 # Each bump is also a patch release: <Version> +0.0.1, tag vX.Y.Z, and release.yml
 # attaches the Windows binary, so release users get the new schema too.
 name: Update EXDSchema
@@ -36,29 +38,17 @@ jobs:
           ref: main
           submodules: recursive
 
-      - name: Bump EXDSchema to latest
-        id: bump
-        shell: bash
-        run: |
-          # actions/checkout fetches submodules at their pinned commit only (shallow, no
-          # branch refs), so fetch the tracked branch before --remote can resolve it.
-          git -C external/EXDSchema fetch --no-tags --depth=1 origin +refs/heads/latest:refs/remotes/origin/latest
-          git submodule update --remote external/EXDSchema
-          if git diff --quiet -- external/EXDSchema; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "EXDSchema is already up to date."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            git -C external/EXDSchema log -1 --format='Now at %h (%cs) %s'
-          fi
-
       - uses: actions/setup-dotnet@v6
-        if: steps.bump.outputs.changed == 'true' || inputs.build
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build with the new schema
-        if: steps.bump.outputs.changed == 'true' || inputs.build
+      - name: Move EXDSchema to the newest buildable commit
+        id: bump
+        shell: bash
+        run: bash .github/scripts/update-schema.sh
+
+      - name: Build (pipeline check)
+        if: steps.bump.outputs.changed != 'true' && inputs.build
         run: dotnet build SharpVision.csproj -c Release
 
       - name: Commit, bump patch version, tag and push
@@ -67,6 +57,8 @@ jobs:
         shell: bash
         run: |
           info=$(git -C external/EXDSchema log -1 --format='%cs, %h')
+          skipped="${{ steps.bump.outputs.skipped }}"
+          if [ "${skipped:-0}" -gt 0 ]; then info="$info; 빌드 안 되는 최신 ${skipped}개 보류"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Catch up with anything pushed since checkout before reading <Version>.

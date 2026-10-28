@@ -217,7 +217,7 @@ output/extract/<지역>/<버전>/
 | [VGAudio](https://www.nuget.org/packages/VGAudio) | 2.2.1 | NuGet | CRI HCA 음원 디코딩 (.scd 일부) |
 
 - **Lumina.Excel**은 NuGet 대신 소스로 빌드합니다. 어떤 스키마로 `Lumina.Excel.Sheets.*` 타입을 생성할지는 `SharpVision.csproj`의 **`ExdSchema` 속성**이 정하며, 기본값은 `latest`(`external/EXDSchema`, 최신 클라이언트와 일치). 이 한 값이 Lumina.Excel의 `SchemaPath`와 기동 배너에 표시되는 스키마 이름·버전까지 함께 결정하므로, 최신 스키마가 빌드를 깨뜨리면 `dotnet build -p:ExdSchema=stable`로 Lumina.Excel에 고정된 stable 스키마로 빌드할 수 있습니다.
-- **EXDSchema 자동 갱신**: GitHub Action(`.github/workflows/update-schema.yml`)이 매일 `latest` 브랜치의 새 커밋을 확인해, 그 스키마로 **빌드가 통과할 때만** 서브모듈 포인터를 올리고 patch 버전을 하나 올려(예: 1.1.0 → 1.1.1) 태그·릴리스까지 만듭니다. 새 스키마가 현재 생성기와 맞지 않아 빌드가 깨지면 반영하지 않고 실패로 남으며, 그때는 Lumina.Excel을 직접 갱신합니다.
+- **EXDSchema 자동 갱신**: GitHub Action(`.github/workflows/update-schema.yml`)이 매일 `latest` 브랜치의 새 커밋을 확인해, 그 스키마로 **빌드가 통과할 때만** 서브모듈 포인터를 올리고 patch 버전을 하나 올려(예: 1.1.0 → 1.1.1) 태그·릴리스까지 만듭니다. 최신 커밋이 빌드되지 않으면(예: 업스트림의 스키마 오타) 한 커밋씩 거슬러 올라가 **빌드되는 가장 최신 커밋**까지만 반영하고, 나머지는 업스트림에서 고쳐질 때까지 보류합니다. 새 커밋이 하나도 빌드되지 않으면(예: 새 스키마 형식에 맞는 생성기가 필요) 반영하지 않고 실패로 남으며, 그때는 Lumina.Excel을 직접 갱신합니다.
 - **버전·릴리스**: 프로그램 버전(SemVer, `SharpVision.csproj`의 `Version`)은 코드·동작이 바뀔 때 직접 올리고(기능: minor, 수정: patch) `vX.Y.Z` 태그를 push하면, `.github/workflows/release.yml`이 Windows x64 실행 파일을 그 태그의 릴리스에 올립니다. 스키마 갱신은 위처럼 patch 릴리스로 자동 발행됩니다. 기동 배너에는 커밋 해시와 스키마 날짜도 함께 표시됩니다(예: `SharpVision v1.1.0 (abc1234)`).
 - ImageSharp는 3.1.x를 사용합니다. 4.x도 같은 Split License(오픈소스는 무료)이지만 빌드 시 Six Labors 라이선스 키를 검사해, 키 없이는 Release 빌드가 실패하기 때문입니다.
 
