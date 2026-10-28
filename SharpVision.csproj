@@ -33,7 +33,7 @@
          changes bump it by hand (feature: minor, fix: patch). EXDSchema auto-updates
          bump the patch automatically (update-schema.yml), so release binaries carry
          the new schema too. The banner also shows the commit hash and schema date. -->
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
