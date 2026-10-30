@@ -2,9 +2,11 @@
 # so the generated sheet types follow new game patches without manual work.
 # It moves to the newest commit that still builds (.github/scripts/update-schema.sh
 # walks back from the tip), so one broken upstream commit only holds back the commits
-# from it onward. If none of the new commits builds (e.g. the schema needs a newer
-# Lumina.Excel generator), the run fails and nothing is committed — bump Lumina.Excel
-# by hand, then re-run.
+# from it onward. Held-back commits don't fail the run (that would mail every day
+# until upstream fixes them); instead one "schema-blocked" issue is opened (and kept
+# up to date) while anything is held back, and closed automatically once the tip
+# builds again. If it lingers, check upstream — the schema may need a newer
+# Lumina.Excel generator, which is bumped by hand.
 # Each bump is also a patch release: <Version> +0.0.1, tag vX.Y.Z, and release.yml
 # attaches the Windows binary, so release users get the new schema too.
 name: Update EXDSchema
@@ -25,6 +27,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   update:
@@ -73,6 +76,32 @@ jobs:
           git push origin HEAD:main
           git push origin "v$next"
           echo "tag=v$next" >> "$GITHUB_OUTPUT"
+
+      # One tracking issue while any newer upstream commit is held back: created once
+      # (one notification), body refreshed on later runs (no notification), closed
+      # automatically when an update reaches the tip again.
+      - name: Track held-back schema commits in an issue
+        if: always() && steps.bump.outcome == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BLOCKED: ${{ steps.bump.outputs.blocked }}
+          TAG: ${{ steps.commit.outputs.tag }}
+        run: |
+          label=schema-blocked
+          num=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ "$BLOCKED" = true ]; then
+            report="$RUNNER_TEMP/schema-blocked.md"
+            if [ -n "$num" ]; then
+              gh issue edit "$num" --body-file "$report"
+              echo "Updated issue #$num"
+            else
+              gh label create "$label" --color D93F0B --description "EXDSchema auto-update is holding back commits" 2>/dev/null || true
+              gh issue create --title "EXDSchema 자동 갱신 보류 중" --label "$label" --body-file "$report"
+            fi
+          elif [ -n "$num" ]; then
+            gh issue close "$num" --comment "EXDSchema 최신 커밋까지 정상 반영되어 자동으로 닫습니다.${TAG:+ ($TAG)}"
+          fi
 
   release:
     needs: update
